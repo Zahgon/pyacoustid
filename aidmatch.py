@@ -27,27 +27,7 @@ API_KEY = "cSpUJKpD"
 
 
 def aidmatch(filename):
-    try:
-        results = acoustid.match(API_KEY, filename)
-    except acoustid.NoBackendError:
-        print("chromaprint library/tool not found", file=sys.stderr)
-        sys.exit(1)
-    except acoustid.FingerprintGenerationError:
-        print("fingerprint could not be calculated", file=sys.stderr)
-        sys.exit(1)
-    except acoustid.WebServiceError as exc:
-        print("web service request failed:", str(exc), file=sys.stderr)
-        sys.exit(1)
-
-    first = True
-    for score, rid, title, artist in results:
-        if first:
-            first = False
-        else:
-            print()
-        print(f"{artist} - {title}")
-        print(f"http://musicbrainz.org/recording/{rid}")
-        print(f"Score: {int(score * 100)}%")
+    pass
 
 
 if __name__ == "__main__":

@@ -29,15 +29,11 @@ def _load_library(name):
     library is not available.
     """
     if sys.platform == "win32":
-        # On Windows since Python 3.8, we need an extra call to
-        # `find_library` to search standard library paths.
         name = ctypes.util.find_library(name)
         if not name:
             return None
 
     try:
-        # Use `winmode=0` to search for libraries in extended search paths.
-        # https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexa
         return ctypes.CDLL(name, winmode=0)
     except OSError:
         return None
@@ -125,8 +121,7 @@ def _check(res):
     """Check the result of a library call, raising an error if the call
     failed.
     """
-    if res != 1:
-        raise FingerprintError()
+    pass
 
 
 class Fingerprinter:
@@ -144,32 +139,19 @@ class Fingerprinter:
 
     def start(self, sample_rate, num_channels):
         """Initialize the fingerprinter with the given audio parameters."""
-        _check(_libchromaprint.chromaprint_start(self._ctx, sample_rate, num_channels))
+        pass
 
     def feed(self, data):
         """Send raw PCM audio data to the fingerprinter. Data may be
         either a bytestring or a buffer object.
         """
-        if isinstance(data, BUFFER_TYPES):
-            data = bytes(data)
-        elif not isinstance(data, bytes):
-            raise TypeError("data must be bytes, buffer, or memoryview")
-        _check(_libchromaprint.chromaprint_feed(self._ctx, data, len(data) // 2))
+        pass
 
     def finish(self):
         """Finish the fingerprint generation process and retrieve the
         resulting fignerprint as a bytestring.
         """
-        _check(_libchromaprint.chromaprint_finish(self._ctx))
-        fingerprint_ptr = ctypes.c_char_p()
-        _check(
-            _libchromaprint.chromaprint_get_fingerprint(
-                self._ctx, ctypes.byref(fingerprint_ptr)
-            )
-        )
-        fingerprint = fingerprint_ptr.value
-        _libchromaprint.chromaprint_dealloc(fingerprint_ptr)
-        return fingerprint
+        pass
 
 
 def decode_fingerprint(data, base64=True):
@@ -184,22 +166,7 @@ def decode_fingerprint(data, base64=True):
         of unsigned 32-bit integers, and an int representing the chromaprint
         algorithm used to generate the fingerprint.
     """
-    result_ptr = ctypes.POINTER(ctypes.c_uint32)()
-    result_size = ctypes.c_int()
-    algorithm = ctypes.c_int()
-    _check(
-        _libchromaprint.chromaprint_decode_fingerprint(
-            data,
-            len(data),
-            ctypes.byref(result_ptr),
-            ctypes.byref(result_size),
-            ctypes.byref(algorithm),
-            1 if base64 else 0,
-        )
-    )
-    result = result_ptr[: result_size.value]
-    _libchromaprint.chromaprint_dealloc(result_ptr)
-    return result, algorithm.value
+    pass
 
 
 def encode_fingerprint(fingerprint, algorithm, base64=True):
@@ -213,24 +180,7 @@ def encode_fingerprint(fingerprint, algorithm, base64=True):
     Returns:
         A bytestring with the encoded fingerprint.
     """
-    fp_array = (ctypes.c_int * len(fingerprint))()
-    for i in range(len(fingerprint)):
-        fp_array[i] = fingerprint[i]
-    result_ptr = ctypes.POINTER(ctypes.c_char)()
-    result_size = ctypes.c_int()
-    _check(
-        _libchromaprint.chromaprint_encode_fingerprint(
-            fp_array,
-            len(fingerprint),
-            algorithm,
-            ctypes.byref(result_ptr),
-            ctypes.byref(result_size),
-            1 if base64 else 0,
-        )
-    )
-    result = result_ptr[: result_size.value]
-    _libchromaprint.chromaprint_dealloc(result_ptr)
-    return result
+    pass
 
 
 def hash_fingerprint(fingerprint):
@@ -265,14 +215,4 @@ def hash_fingerprint(fingerprint):
         # A value > 15 indicates the two fingerprints are very different.
         bin(int(first_fp_binary,2)^int(second_fp_binary,2)).count
     """
-
-    fp_array = (ctypes.c_int * len(fingerprint))()
-    for i in range(len(fingerprint)):
-        fp_array[i] = fingerprint[i]
-    result_hash = ctypes.c_uint32()
-    _check(
-        _libchromaprint.chromaprint_hash_fingerprint(
-            fp_array, len(fingerprint), ctypes.byref(result_hash)
-        )
-    )
-    return result_hash.value
+    pass

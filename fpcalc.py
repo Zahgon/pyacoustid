@@ -25,48 +25,7 @@ import chromaprint
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-length",
-        metavar="SECS",
-        type=int,
-        default=120,
-        help="length of the audio data used for fingerprint calculation (default 120)",
-    )
-    parser.add_argument(
-        "-raw", action="store_true", help="output the raw uncompressed fingerprint"
-    )
-    parser.add_argument(
-        "paths", metavar="FILE", nargs="+", help="audio file to be fingerprinted"
-    )
-
-    args = parser.parse_args()
-    # make gst not try to parse the args
-    del sys.argv[1:]
-
-    first = True
-    for i, path in enumerate(args.paths):
-        try:
-            duration, fp = acoustid.fingerprint_file(path, args.length)
-        except Exception:
-            print(
-                f"ERROR: unable to calculate fingerprint for file {path}, skipping",
-                file=sys.stderr,
-            )
-            continue
-        if args.raw:
-            raw_fp = chromaprint.decode_fingerprint(fp)[0]
-            fp = ",".join(map(str, raw_fp))
-        if not first:
-            print()
-        first = False
-        print(f"FILE={path}")
-        print(f"DURATION={duration}")
-        if isinstance(fp, bytes):
-            fp_text = fp.decode("utf8")
-        else:
-            fp_text = fp
-        print(f"FINGERPRINT={fp_text}")
+    pass
 
 
 if __name__ == "__main__":

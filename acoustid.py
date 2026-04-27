@@ -102,25 +102,22 @@ class WebServiceError(AcoustidError):
 
 def set_base_url(url):
     """Set the URL of the API server to query."""
-    if not url.endswith("/"):
-        url += "/"
-    global API_BASE_URL
-    API_BASE_URL = url
+    pass
 
 
 def _get_lookup_url():
     """Get the URL of the lookup API endpoint."""
-    return API_BASE_URL + "lookup"
+    pass
 
 
 def _get_submit_url():
     """Get the URL of the submission API endpoint."""
-    return API_BASE_URL + "submit"
+    pass
 
 
 def _get_submission_status_url():
     """Get the URL of the submission status API endpoint."""
-    return API_BASE_URL + "submission_status"
+    pass
 
 
 # Compressed HTTP request bodies.
@@ -128,10 +125,7 @@ def _get_submission_status_url():
 
 def _compress(data):
     """Compress a bytestring to a gzip archive."""
-    sio = BytesIO()
-    with contextlib.closing(gzip.GzipFile(fileobj=sio, mode="wb")) as f:
-        f.write(data)
-    return sio.getvalue()
+    pass
 
 
 class CompressedHTTPAdapter(requests.adapters.HTTPAdapter):
@@ -140,11 +134,7 @@ class CompressedHTTPAdapter(requests.adapters.HTTPAdapter):
     """
 
     def add_headers(self, request, **kwargs):
-        body = request.body
-        if not isinstance(body, bytes):
-            body = body.encode("utf8")
-        request.prepare_body(_compress(body), None)
-        request.headers["Content-Encoding"] = "gzip"
+        pass
 
 
 # Utilities.
@@ -183,26 +173,7 @@ def _api_request(url, params, timeout=None):
     response. May raise a WebServiceError if the request fails.
     If the specified timeout passes, then raises a TimeoutError.
     """
-    headers = {
-        "Accept-Encoding": "gzip",
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-
-    with requests.Session() as session:
-        session.mount("http://", CompressedHTTPAdapter())
-        try:
-            if isinstance(params.get("meta"), list):
-                params["meta"] = " ".join(params["meta"])
-            response = session.post(url, data=params, headers=headers, timeout=timeout)
-        except requests.exceptions.RequestException as exc:
-            raise WebServiceError(f"HTTP request failed: {exc}")
-        except requests.exceptions.ReadTimeout:
-            raise WebServiceError(f"HTTP request timed out ({timeout}s)")
-
-    try:
-        return response.json()
-    except ValueError:
-        raise WebServiceError("response is not valid JSON")
+    pass
 
 
 # Main API.
@@ -214,31 +185,7 @@ def fingerprint(samplerate, channels, pcmiter, maxlength=MAX_AUDIO_LENGTH):
     data as byte strings. Raises a FingerprintGenerationError if
     anything goes wrong.
     """
-    # Maximum number of samples to decode.
-    endposition = samplerate * channels * maxlength
-
-    try:
-        fper = chromaprint.Fingerprinter()
-        fper.start(samplerate, channels)
-
-        position = 0
-        while position < endposition:
-            try:
-                block = next(pcmiter)
-            except StopIteration:
-                # No more data
-                break
-
-            # Calculate remaining samples needed
-            remaining = endposition - position
-            # Feed only up to remaining samples
-            bytes_to_feed = min(len(block), remaining * 2)
-            fper.feed(block[:bytes_to_feed])
-            position += bytes_to_feed // 2
-
-        return fper.finish()
-    except chromaprint.FingerprintError:
-        raise FingerprintGenerationError("fingerprint calculation failed")
+    pass
 
 
 def lookup(apikey, fingerprint, duration, meta=DEFAULT_META, timeout=None):
@@ -248,14 +195,7 @@ def lookup(apikey, fingerprint, duration, meta=DEFAULT_META, timeout=None):
     recordingids, releases, releaseids, releasegroups, releasegroupids,
     tracks, compress, usermeta, sources.
     """
-    params = {
-        "format": "json",
-        "client": apikey,
-        "duration": int(duration),
-        "fingerprint": fingerprint,
-        "meta": meta,
-    }
-    return _api_request(_get_lookup_url(), params, timeout)
+    pass
 
 
 def parse_lookup_result(data):
@@ -266,78 +206,17 @@ def parse_lookup_result(data):
     the last item is None. If the response is incomplete, raises a
     WebServiceError.
     """
-    if data["status"] != "ok":
-        raise WebServiceError("status: {}".format(data["status"]))
-    if "results" not in data:
-        raise WebServiceError("results not included")
-
-    for result in data["results"]:
-        score = result["score"]
-        if "recordings" not in result:
-            # No recording attached. This result is not very useful.
-            continue
-
-        for recording in result["recordings"]:
-            # Get the artist if available.
-            artists = recording.get("artists")
-            if artists:
-                artist_name = "".join(
-                    [
-                        artist["name"] + artist.get("joinphrase", "")
-                        for artist in artists
-                    ]
-                )
-            else:
-                artist_name = None
-
-            yield score, recording["id"], recording.get("title"), artist_name
+    pass
 
 
 def _fingerprint_file_audioread(path, maxlength):
     """Fingerprint a file by using audioread and chromaprint."""
-    try:
-        with audioread.audio_open(path) as f:
-            duration = f.duration
-            fp = fingerprint(f.samplerate, f.channels, iter(f), maxlength)
-    except audioread.DecodeError:
-        raise FingerprintGenerationError("audio could not be decoded")
-    return duration, fp
+    pass
 
 
 def _fingerprint_file_fpcalc(path, maxlength):
     """Fingerprint a file by calling the fpcalc application."""
-    fpcalc = os.environ.get(FPCALC_ENVVAR, FPCALC_COMMAND)
-    command = [fpcalc, "-length", str(maxlength), path]
-    try:
-        with open(os.devnull, "wb") as devnull:
-            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=devnull)
-            output, _ = proc.communicate()
-    except OSError as exc:
-        if exc.errno == errno.ENOENT:
-            raise NoBackendError("fpcalc not found")
-        else:
-            raise FingerprintGenerationError(f"fpcalc invocation failed: {exc!s}")
-    retcode = proc.poll()
-    if retcode:
-        raise FingerprintGenerationError(f"fpcalc exited with status {retcode}")
-
-    duration = fp = None
-    for line in output.splitlines():
-        try:
-            parts = line.split(b"=", 1)
-        except ValueError:
-            raise FingerprintGenerationError("malformed fpcalc output")
-        if parts[0] == b"DURATION":
-            try:
-                duration = float(parts[1])
-            except ValueError:
-                raise FingerprintGenerationError("fpcalc duration not numeric")
-        elif parts[0] == b"FINGERPRINT":
-            fp = parts[1]
-
-    if duration is None or fp is None:
-        raise FingerprintGenerationError("missing fpcalc output")
-    return duration, fp
+    pass
 
 
 def fingerprint_file(path, maxlength=MAX_AUDIO_LENGTH, force_fpcalc=False):
@@ -346,16 +225,12 @@ def fingerprint_file(path, maxlength=MAX_AUDIO_LENGTH, force_fpcalc=False):
     ``force_fpcalc`` is specified). Returns the duration and the
     fingerprint.
     """
-    path = os.path.abspath(os.path.expanduser(path))
-    if have_audioread and have_chromaprint and not force_fpcalc:
-        return _fingerprint_file_audioread(path, maxlength)
-    else:
-        return _fingerprint_file_fpcalc(path, maxlength)
+    pass
 
 
 def _popcount(x) -> int:
     """count 1s in binary encoding of x"""
-    return bin(x).count("1")
+    pass
 
 
 def _match_fingerprints(a: list[int], b: list[int]) -> float:
@@ -368,21 +243,7 @@ def _match_fingerprints(a: list[int], b: list[int]) -> float:
     :param b: decompressed fingerprint
     :return:  similarity score [0,1]
     """
-    asize = len(a)
-    bsize = len(b)
-    numcounts = asize + bsize + 1
-    counts = [0] * numcounts
-
-    for i in range(asize):
-        jbegin = max(0, i - MAX_ALIGN_OFFSET)
-        jend = min(bsize, i + MAX_ALIGN_OFFSET)
-        for j in range(jbegin, jend):
-            biterror = _popcount(a[i] ^ b[j])  # xor operator
-            if biterror <= MAX_BIT_ERROR:
-                offset = i - j + bsize
-                counts[offset] += 1
-    topcount = max(counts)
-    return topcount / min(asize, bsize)
+    pass
 
 
 def compare_fingerprints(a, b) -> float:
@@ -392,13 +253,7 @@ def compare_fingerprints(a, b) -> float:
     :param b: A second such pair.
     :return:  similarity score [0,1]
     """
-    if not have_chromaprint:
-        raise ModuleNotFoundError("function needs chromaprint")
-
-    # decompress fingerprints
-    a = [int(x) for x in chromaprint.decode_fingerprint(a[1])[0]]
-    b = [int(x) for x in chromaprint.decode_fingerprint(b[1])[0]]
-    return _match_fingerprints(a, b)
+    pass
 
 
 def match(
@@ -414,12 +269,7 @@ def match(
     releases, releaseids, releasegroups, releasegroupids, tracks,
     compress, usermeta, sources.
     """
-    duration, fp = fingerprint_file(path, force_fpcalc=force_fpcalc)
-    response = lookup(apikey, fp, duration, meta, timeout)
-    if parse:
-        return parse_lookup_result(response)
-    else:
-        return response
+    pass
 
 
 def submit(apikey, userkey, data, timeout=None):
@@ -439,36 +289,7 @@ def submit(apikey, userkey, data, timeout=None):
 
     Returns the parsed JSON response.
     """
-    if isinstance(data, dict):
-        data = [data]
-
-    args = {
-        "format": "json",
-        "client": apikey,
-        "user": userkey,
-    }
-
-    # Build up "field.#" parameters corresponding to the parameters
-    # given in each dictionary.
-    for i, d in enumerate(data):
-        if "duration" not in d or "fingerprint" not in d:
-            raise FingerprintSubmissionError("missing required parameters")
-
-        # The duration needs to be an integer.
-        d["duration"] = int(d["duration"])
-
-        for k, v in d.items():
-            args[f"{k}.{i}"] = v
-
-    response = _api_request(_get_submit_url(), args, timeout)
-    if response.get("status") != "ok":
-        try:
-            code = response["error"]["code"]
-            message = response["error"]["message"]
-        except KeyError:
-            raise WebServiceError(f"response: {response}")
-        raise WebServiceError(f"error {code}: {message}")
-    return response
+    pass
 
 
 def get_submission_status(apikey, submission_id, timeout=None):
@@ -476,9 +297,4 @@ def get_submission_status(apikey, submission_id, timeout=None):
     ``submission_id`` is the id of a fingerprint submission, as returned
     in the response object of a call to the ``submit`` endpoint.
     """
-    params = {
-        "format": "json",
-        "client": apikey,
-        "id": submission_id,
-    }
-    return _api_request(_get_submission_status_url(), params, timeout)
+    pass
